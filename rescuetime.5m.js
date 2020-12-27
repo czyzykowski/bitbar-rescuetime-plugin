@@ -1,4 +1,4 @@
-#!/usr/bin/env /usr/local/bin/node
+#!/usr/bin/env /nix/store/lcr10m9cfdm1qpd0kzjgb2iy8mmxcjjc-nodejs-12.18.4/bin/node
 
 // <bitbar.title>People In Space</bitbar.title>
 // <bitbar.version>v1.1</bitbar.version>
@@ -14,8 +14,10 @@
 /* jshint -W100 */
 /* jshint esversion: 6 */
 
-const https = require('https');
 const fs = require('fs');
+const axios = require('axios');
+
+const GOOD_SCORE = 70;
 
 
 // Rescue time API key. Need to manually create an api.key file
@@ -32,36 +34,21 @@ let endpoint_today = `${ENDPOINT_ACTIVITIES}?key=${API_KEY}&perspective=interval
 
 
 function request(endpoint) {
-  return new Promise((resolve, reject) => {
-    https.get(endpoint, (res) => {
-      const body = [];
-      res.on('data', (data) => body.push(data));
-      res.on('end', () => {
-        try {
-          resolve(JSON.parse(body.join()));
-        } catch(error) {
-          reject(error);
-        }
-      });
-      res.on('error', (error) => {
-        reject(error);
-      });
-    });
-  });
+  return axios(endpoint).then((response) => response.data);
 }
 
 function getDayOfWeek(date) {
   const dateObj = new Date(date);
-  const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday', 'Sunday'];
+  const days = ['Sunday', 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   return days[dateObj.getDay()];
 }
 
 function getColorFromScore(score) {
-  return (score >= 69 ? 'black' : 'red');
+  return (score >= GOOD_SCORE ? '#E5EDF3' : 'red');
 }
 
 function getTickOrCross(score) {
-  return (score >= 69 ? '✅' : '❌');
+  return (score >= GOOD_SCORE ? '✅' : '❌');
 }
 
 function hoursToString(hoursDecimal) {
@@ -109,7 +96,8 @@ request(endpoint_today).then((json) => {
     score = Math.floor((1*vpHours + .75*pHours + .5*nHours + .25*dHours + 0*vdHours)/today_hours*100);
   }
 
-  console.log(`🎯${score}  (${hoursToString(vpHours)} of ${hoursToString(today_hours)}) | color=${getColorFromScore(score)}`);
+  console.log(`⇪${score}`);
+  // console.log(`🎯${score}  (${hoursToString(vpHours + pHours)} of ${hoursToString(today_hours)}) | color=${getColorFromScore(score)}`);
   console.log(`---`);
   console.log(`${getTickOrCross(score)} Today: ${score} | href=https://www.rescuetime.com/dashboard color=black`);
   console.log(`${hoursToString(vpHours)} of ${hoursToString(today_hours)} (${Math.round(vpHours/today_hours*100)}%)`)
@@ -120,13 +108,16 @@ request(endpoint_today).then((json) => {
 
 // Get this week's productivity data
 request(endpoint_week).then((json) => {
-  // Determine day of week for first entry of array
-  const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday', 'Sunday'];
   const data_thisWeek = json.slice(0, 6); // Slice works differently in node vs. with BitBar. In BitBar, slice removes end index.
 
   data_thisWeek.forEach((data_day) => {
-    console.log(`${getTickOrCross(data_day.productivity_pulse)} ${getDayOfWeek(data_day.date)}: ${data_day.productivity_pulse} | href=${URL_DASH_DAY}${data_day.date} color=black`)
-    console.log(`${hoursToString(data_day.very_productive_hours)} of ${hoursToString(data_day.total_hours)} (${data_day.very_productive_percentage}%)`)
+    const dow = getDayOfWeek(data_day.date);
+    const weekend = [ 'Saturday', 'Sunday' ].includes(dow);
+    const tick = weekend ? '🌤' : getTickOrCross(data_day.productivity_pulse);
+    const productive_hours = data_day.very_productive_hours + data_day.productive_hours;
+    const productive_percentage = Math.round(productive_hours * 100 / data_day.total_hours);
+    console.log(`${tick} ${dow}: ${data_day.productivity_pulse} | href=${URL_DASH_DAY}${data_day.date} color=black`)
+    console.log(`${hoursToString(productive_hours)} of ${hoursToString(data_day.total_hours)} (${productive_percentage}%)`)
     console.log(`---`)
   })
 }).catch((error) => {
