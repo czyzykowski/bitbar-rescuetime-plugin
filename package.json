@@ -3,5 +3,8 @@
   "version": "20.12.1",
   "dependencies": {
     "axios": "^0.21.0"
+  },
+  "bin": {
+    "rescuetime.5m.js": "./rescuetime.5m.js"
   }
 }
