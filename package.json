@@ -1,0 +1,7 @@
+{
+  "name": "bitbar-rescuetime-plugin",
+  "version": "20.12.1",
+  "dependencies": {
+    "axios": "^0.21.0"
+  }
+}
